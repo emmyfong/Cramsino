@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Calendar } from "@/components/ui/calendar";
@@ -14,6 +14,26 @@ import { cn } from "@/lib/utils";
 
 export default function Home() {
   const [isGachaOpen, setIsGachaOpen] = useState(true);
+  const apiBase = "https://cramsino.onrender.com";
+  const clientId = "af8835c5-d0be-49b1-8e22-12228c48444c";
+  const pollIntervalMs = 2000;
+  const [hasStarted, setHasStarted] = useState(false);
+  const [isRunning, setIsRunning] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [status, setStatus] = useState<{
+    face_present?: boolean;
+    looking_forward?: boolean;
+    talking?: boolean;
+    distracted?: boolean;
+    updated_at?: string;
+  } | null>(null);
+  const [talkingStreak, setTalkingStreak] = useState(0);
+  const [distractedStreak, setDistractedStreak] = useState(0);
+  const [autoPaused, setAutoPaused] = useState(false);
+  const [coinBalance, setCoinBalance] = useState(0);
+  const packCost = 500;
+  const coinAwardIntervalSeconds = 5;
+  const lastAwardedBatchRef = useRef(0);
 
   // Mock data for streak
   const today = new Date();
@@ -22,6 +42,132 @@ export default function Home() {
     date.setDate(today.getDate() - i);
     return date;
   });
+
+  const formattedTime = useMemo(() => {
+    const minutes = Math.floor(elapsedSeconds / 60)
+      .toString()
+      .padStart(2, "0");
+    const seconds = (elapsedSeconds % 60).toString().padStart(2, "0");
+    return `${minutes}:${seconds}`;
+  }, [elapsedSeconds]);
+
+  useEffect(() => {
+    if (!hasStarted || !isRunning) {
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [hasStarted, isRunning]);
+
+  useEffect(() => {
+    if (!hasStarted || !clientId.trim()) {
+      return;
+    }
+
+    const poll = async () => {
+      try {
+        const response = await fetch(
+          `${apiBase}/status?client_id=${encodeURIComponent(clientId.trim())}`
+        );
+        if (!response.ok) {
+          return;
+        }
+        const data = await response.json();
+        setStatus(data);
+
+        const isTalking = Boolean(data?.status?.talking);
+        const isDistracted = Boolean(data?.status?.distracted);
+
+        const tickSeconds = pollIntervalMs / 1000;
+        setTalkingStreak((prev) => (isTalking ? prev + tickSeconds : 0));
+        setDistractedStreak((prev) => (isDistracted ? prev + tickSeconds : 0));
+      } catch {
+        // Ignore polling errors
+      }
+    };
+
+    poll();
+    const interval = setInterval(poll, pollIntervalMs);
+    return () => clearInterval(interval);
+  }, [clientId, hasStarted, pollIntervalMs]);
+
+  useEffect(() => {
+    if (!hasStarted) {
+      return;
+    }
+
+    const shouldPause = talkingStreak >= 5 || distractedStreak >= 5;
+    if (shouldPause) {
+      setAutoPaused(true);
+      setIsRunning(false);
+      return;
+    }
+
+    if (autoPaused) {
+      setAutoPaused(false);
+      setIsRunning(true);
+    }
+  }, [autoPaused, distractedStreak, hasStarted, talkingStreak]);
+
+  useEffect(() => {
+    if (!hasStarted || !isRunning) {
+      return;
+    }
+
+    const totalBatches = Math.floor(elapsedSeconds / coinAwardIntervalSeconds);
+    if (totalBatches > lastAwardedBatchRef.current) {
+      const newlyEarned = totalBatches - lastAwardedBatchRef.current;
+      setCoinBalance((prev) => prev + newlyEarned * 500);
+      lastAwardedBatchRef.current = totalBatches;
+    }
+  }, [elapsedSeconds, hasStarted, isRunning, coinAwardIntervalSeconds]);
+
+  useEffect(() => {
+    const storedCoinsRaw = localStorage.getItem("cramsinoCoins");
+    const storedCoins = storedCoinsRaw === null ? 10000 : Number.parseInt(storedCoinsRaw, 10);
+
+    const nextCoins = Number.isNaN(storedCoins) ? 10000 : storedCoins;
+
+    setCoinBalance(nextCoins);
+
+    if (storedCoinsRaw === null) {
+      localStorage.setItem("cramsinoCoins", nextCoins.toString());
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("cramsinoCoins", coinBalance.toString());
+    window.dispatchEvent(new Event("cramsinoCoinsUpdated"));
+  }, [coinBalance]);
+
+  const onStart = () => {
+    setHasStarted(true);
+    setIsRunning(true);
+  };
+
+  const onPause = () => {
+    setIsRunning(false);
+    setAutoPaused(false);
+  };
+
+  const onReset = () => {
+    setHasStarted(false);
+    setIsRunning(false);
+    setAutoPaused(false);
+    setElapsedSeconds(0);
+    setTalkingStreak(0);
+    setDistractedStreak(0);
+    setStatus(null);
+    lastAwardedBatchRef.current = 0;
+  };
+
+  const handleSpendPack = (amount: number) => {
+    setCoinBalance((prev) => Math.max(0, prev - amount));
+  };
 
   return (
     // FIX 1: 'h-auto' allows scrolling on mobile/split. 'lg:h-[...]' locks it on desktop.
@@ -114,6 +260,36 @@ export default function Home() {
                         </CardContent>
                     </div>
                   </Card>
+
+                  <Card className="border border-slate-200 shadow-sm bg-white">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Focus Timer</CardTitle>
+                      <Badge variant="secondary">
+                        {autoPaused ? "Auto-paused" : isRunning ? "Running" : hasStarted ? "Paused" : "Ready"}
+                      </Badge>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="text-4xl font-bold text-slate-900">{formattedTime}</div>
+
+                      <div className="flex flex-wrap gap-3">
+                        <Button onClick={onStart} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                          Start
+                        </Button>
+                        <Button onClick={onPause} variant="outline">
+                          Pause
+                        </Button>
+                        <Button onClick={onReset} variant="outline">
+                          Reset
+                        </Button>
+                      </div>
+
+                      <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
+                        <div>Talking streak: {talkingStreak}s</div>
+                        <div>Distracted streak: {distractedStreak}s</div>
+                        <div>Last update: {status?.updated_at ?? "—"}</div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
 
                 {/* Tasks Section */}
@@ -167,7 +343,13 @@ export default function Home() {
                 {/* Gacha Content Container */}
                 <div className="relative z-10 flex-1 flex items-center justify-center p-8 min-h-[500px] lg:min-h-0">
                     <div className="scale-100 transition-transform">
-                        <GachaPack />
+                        <GachaPack
+                          balance={coinBalance}
+                          packCost={packCost}
+                          canOpen={coinBalance >= packCost}
+                          onSpend={handleSpendPack}
+                          apiBase={apiBase}
+                        />
                     </div>
                 </div>
             </motion.div>
