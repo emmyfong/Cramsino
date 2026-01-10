@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { ThreeDObject } from "./three-d-pack";
@@ -35,7 +36,6 @@ export function GachaPack() {
 
   return (
     <>
-      {/* IDLE STATE */}
       <div 
         className={`relative h-80 w-56 cursor-pointer group perspective-1000 z-10 transition-opacity duration-500 ${isCinematic ? "opacity-0 pointer-events-none delay-500" : ""}`}
         onClick={handlePackClick}
@@ -48,120 +48,130 @@ export function GachaPack() {
         </div>
       </div>
 
-      {/* CINEMATIC OVERLAY */}
-      <AnimatePresence>
-        {isCinematic && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.8 }} 
-            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/95"
-          >
-            {status !== "centering" && <SparkleOverlay />}
-            <FireworkOrchestrator status={status} />
+      <Portal>
+        <AnimatePresence>
+          {isCinematic && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.8 }} 
+              className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/95"
+            >
+              
+              {/* FX LAYERS */}
+              {status !== "centering" && <SparkleOverlay />}
+              <FireworkOrchestrator status={status} />
 
+              {/* PACK ANIMATION */}
+              {showPack && (
+                <motion.div
+                  layoutId="cinematic-pack"
+                  initial={{ scale: 0.8, y: 0 }}
+                  animate={
+                    status === "centering" ? { scale: 1.2, y: 0 } :
+                    status === "spinning" ? { rotateY: 1800, scale: 1.2 } :
+                    status === "ripping" ? { rotateY: 1800, scale: 1.8, y: 50 } : {}
+                  }
+                  transition={
+                      status === "centering" ? { duration: 1, ease: "easeInOut" } :
+                      status === "spinning" ? { duration: 2.5, ease: "circIn" } : 
+                      status === "ripping" ? { duration: 0.4, ease: "easeOut" } :
+                      { duration: 0 }
+                  }
+                  className="relative perspective-1000"
+                >
+                  <div className="relative w-64 h-96">
+                     <div className="absolute inset-x-0 bottom-0 h-[85%] bg-gradient-to-br from-indigo-600 to-purple-800 rounded-b-xl border-x-4 border-b-4 border-yellow-400 shadow-[0_0_80px_rgba(250,204,21,0.6)] flex items-center justify-center overflow-hidden">
+                        <div className="text-white text-center animate-pulse">
+                          <Sparkles className="w-12 h-12 mx-auto text-yellow-300" />
+                        </div>
+                     </div>
+                     <motion.div 
+                       animate={status === "ripping" ? { y: -200, x: 100, rotate: 60, opacity: 0, scale: 1.2 } : {}}
+                       transition={{ duration: 0.4, ease: "backIn" }}
+                       className="absolute inset-x-0 top-0 h-[15%] bg-indigo-500 border-x-4 border-t-4 border-yellow-400 rounded-t-xl z-20"
+                     >
+                         <div className="absolute -bottom-2 w-full h-4 bg-indigo-500" style={{ clipPath: "polygon(0% 0%, 5% 100%, 10% 0%, 15% 100%, 20% 0%, 25% 100%, 30% 0%, 35% 100%, 40% 0%, 45% 100%, 50% 0%, 55% 100%, 60% 0%, 65% 100%, 70% 0%, 75% 100%, 80% 0%, 85% 100%, 90% 0%, 95% 100%, 100% 0%)" }}></div>
+                     </motion.div>
+                  </div>
+                </motion.div>
+              )}
 
-            {/* PACK ANIMATION */}
-            {showPack && (
-              <motion.div
-                layoutId="cinematic-pack"
-                initial={{ scale: 0.8, y: 0 }}
-                animate={
-                  status === "centering" ? { scale: 1.2, y: 0 } :
-                  status === "spinning" ? { rotateY: 1800, scale: 1.2 } :
-                  status === "ripping" ? { rotateY: 1800, scale: 1.8, y: 50 } : {}
-                }
-                transition={
-                    status === "centering" ? { duration: 1, ease: "easeInOut" } :
-                    status === "spinning" ? { duration: 2.5, ease: "circIn" } : 
-                    status === "ripping" ? { duration: 0.4, ease: "easeOut" } :
-                    { duration: 0 }
-                }
-                className="relative perspective-1000"
-              >
-                <div className="relative w-64 h-96">
-                   <div className="absolute inset-x-0 bottom-0 h-[85%] bg-gradient-to-br from-indigo-600 to-purple-800 rounded-b-xl border-x-4 border-b-4 border-yellow-400 shadow-[0_0_80px_rgba(250,204,21,0.6)] flex items-center justify-center overflow-hidden">
-                      <div className="text-white text-center animate-pulse">
-                        <Sparkles className="w-12 h-12 mx-auto text-yellow-300" />
-                      </div>
-                   </div>
-                   <motion.div 
-                     animate={status === "ripping" ? { y: -200, x: 100, rotate: 60, opacity: 0, scale: 1.2 } : {}}
-                     transition={{ duration: 0.4, ease: "backIn" }}
-                     className="absolute inset-x-0 top-0 h-[15%] bg-indigo-500 border-x-4 border-t-4 border-yellow-400 rounded-t-xl z-20"
-                   >
-                       <div className="absolute -bottom-2 w-full h-4 bg-indigo-500" style={{ clipPath: "polygon(0% 0%, 5% 100%, 10% 0%, 15% 100%, 20% 0%, 25% 100%, 30% 0%, 35% 100%, 40% 0%, 45% 100%, 50% 0%, 55% 100%, 60% 0%, 65% 100%, 70% 0%, 75% 100%, 80% 0%, 85% 100%, 90% 0%, 95% 100%, 100% 0%)" }}></div>
-                   </motion.div>
-                </div>
-              </motion.div>
-            )}
+              <AnimatePresence>
+                  {status === "flash" && (
+                      <motion.div 
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0, transition: { duration: 0.8, ease: "easeOut" } }}
+                          transition={{ duration: 0.1 }}
+                          className="absolute inset-0 bg-white z-[70]"
+                      />
+                  )}
+              </AnimatePresence>
 
-            {/* THE FLASH */}
-            <AnimatePresence>
-                {status === "flash" && (
+              {status === "reveal" && (
+                <>
                     <motion.div 
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0, transition: { duration: 0.8, ease: "easeOut" } }}
-                        transition={{ duration: 0.1 }}
-                        className="absolute inset-0 bg-white z-[70]"
-                    />
-                )}
-            </AnimatePresence>
+                      className="grid grid-cols-5 gap-4 w-full max-w-6xl px-4 z-50"
+                      initial="hidden"
+                      animate="visible"
+                      variants={{
+                        visible: { transition: { staggerChildren: 0.1, delayChildren: 0.2 } }
+                      }}
+                    >
+                      {cards.map((card) => (
+                        <motion.div
+                          key={card.id}
+                          variants={{
+                            hidden: { y: 150, opacity: 0, scale: 0.5, rotateX: -45 },
+                            visible: { 
+                                y: 0, opacity: 1, scale: 1, rotateX: 0,
+                                transition: { type: "spring", bounce: 0.4, duration: 0.8 } 
+                            }
+                          }}
+                        >
+                          <ResultCard card={card} />
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                    
+                    <motion.div 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 1.5 }}
+                      className="absolute bottom-10 inset-x-0 text-center z-[80] cursor-pointer"
+                      onClick={reset}
+                    >
+                        <span className="text-white/70 font-bold text-sm uppercase tracking-[0.3em] animate-pulse hover:text-white transition-colors border-b-2 border-transparent hover:border-white pb-2">
+                            Tap to Continue
+                        </span>
+                        <div className="fixed inset-0 z-40" onClick={reset}></div>
+                    </motion.div>
+                </>
+              )}
 
-            {/* THE REVEAL */}
-            {status === "reveal" && (
-              <>
-                  <motion.div 
-                    className="grid grid-cols-5 gap-4 w-full max-w-6xl px-4 z-50"
-                    initial="hidden"
-                    animate="visible"
-                    variants={{
-                      visible: { transition: { staggerChildren: 0.1, delayChildren: 0.2 } }
-                    }}
-                  >
-                    {cards.map((card) => (
-                      <motion.div
-                        key={card.id}
-                        variants={{
-                          hidden: { y: 150, opacity: 0, scale: 0.5, rotateX: -45 },
-                          visible: { 
-                              y: 0, opacity: 1, scale: 1, rotateX: 0,
-                              transition: { type: "spring", bounce: 0.4, duration: 0.8 } 
-                          }
-                        }}
-                      >
-                        <ResultCard card={card} />
-                      </motion.div>
-                    ))}
-                  </motion.div>
-                  
-                  <motion.div 
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 1.5 }}
-                    className="absolute bottom-10 inset-x-0 text-center z-[80] cursor-pointer"
-                    onClick={reset}
-                  >
-                      <span className="text-white/70 font-bold text-sm uppercase tracking-[0.3em] animate-pulse hover:text-white transition-colors border-b-2 border-transparent hover:border-white pb-2">
-                          Tap to Continue
-                      </span>
-                      <div className="fixed inset-0 z-40" onClick={reset}></div>
-                  </motion.div>
-              </>
-            )}
-
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </Portal>
     </>
   );
 }
 
-// =========================================
-// FX COMPONENTS
-// =========================================
+
+function Portal({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(children, document.body);
+}
+
 
 function SparkleOverlay() {
     const sparkles = useMemo(() => Array.from({ length: 50 }).map((_, i) => ({
@@ -211,7 +221,6 @@ function FireworkOrchestrator({ status }: { status: GachaState }) {
                         scale={1.5}
                      />
                 )}
-
                 {status === "reveal" && (
                     <>
                      <SuperFirework key="fw-1" delay={0.1} x="20%" y="30%" colors={["#ef4444", "#fcd34d", "#ffffff"]} />
@@ -232,7 +241,7 @@ interface FireworkProps {
 
 function SuperFirework({ delay = 0, x, y, colors, particleCount = 24, scale = 1 }: FireworkProps) {
     const particles = useMemo(() => Array.from({ length: particleCount }).map((_, i) => {
-        const angle = (i / particleCount) * 360;
+        const angle = (i / particleCount) * 360; 
         const velocity = 150 + Math.random() * 100;
         const gravity = 100 + Math.random() * 50;
         return {
@@ -253,7 +262,6 @@ function SuperFirework({ delay = 0, x, y, colors, particleCount = 24, scale = 1 
                 transition={{ duration: 0.4, delay: delay, ease: "easeOut" }}
                 className="absolute -translate-x-1/2 -translate-y-1/2 w-20 h-20 bg-white blur-2xl rounded-full z-10"
             />
-
             {particles.map((p) => {
                 const initialX = Math.cos(p.angle) * p.velocity * scale;
                 const initialY = Math.sin(p.angle) * p.velocity * scale;
@@ -277,7 +285,6 @@ function SuperFirework({ delay = 0, x, y, colors, particleCount = 24, scale = 1 
          </div>
     );
 }
-
 
 function PackVisual() {
   return (
