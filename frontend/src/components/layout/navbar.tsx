@@ -15,7 +15,7 @@ export function Navbar() {
         {/* Center: Title */}
         <div className="flex-1 flex justify-center">
           <Link href="/" className="font-extrabold text-xl tracking-tighter hover:opacity-80 transition-opacity">
-            GACHA VERSE
+            CRAMSINO
           </Link>
         </div>
 
