@@ -1,3 +1,4 @@
 visionenv/
 .env
 .client_id
+ws-server/node_modules/

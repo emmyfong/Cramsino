@@ -2,12 +2,23 @@ const express = require("express");
 const http = require("http");
 const cors = require("cors");
 const { WebSocketServer } = require("ws");
+const path = require("path");
+const dotenv = require("dotenv");
+const { createClient } = require("@supabase/supabase-js");
 
 const PORT = process.env.PORT || 8787;
+
+dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabase = supabaseUrl && supabaseKey
+  ? createClient(supabaseUrl, supabaseKey)
+  : null;
 
 // In-memory status cache by client_id
 const statusByClient = new Map();
@@ -28,6 +39,32 @@ app.get("/status", (req, res) => {
   }
 
   res.json(entry);
+});
+
+app.get("/pack", async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({ error: "supabase not configured" });
+  }
+
+  const count = Number.parseInt(req.query.count || "5", 10);
+  const pullCount = Number.isNaN(count) || count < 1 ? 5 : count;
+
+  const { data, error } = await supabase.from("cards").select("*");
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+
+  const cards = data || [];
+  if (cards.length <= pullCount) {
+    return res.json({ cards });
+  }
+
+  const shuffled = cards
+    .map((card) => ({ card, sort: Math.random() }))
+    .sort((a, b) => a.sort - b.sort)
+    .map((entry) => entry.card);
+
+  res.json({ cards: shuffled.slice(0, pullCount) });
 });
 
 const server = http.createServer(app);
