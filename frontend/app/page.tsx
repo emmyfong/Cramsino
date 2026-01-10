@@ -35,7 +35,11 @@ export default function Home() {
   const coinAwardIntervalSeconds = 5;
   const lastAwardedBatchRef = useRef(0);
   const [activeQuest, setActiveQuest] = useState<any>(null);
+  const [questCompleted, setQuestCompleted] = useState(false);
+  const [cleanFocusSeconds, setCleanFocusSeconds] = useState(0);
   const [isLoadingQuest, setIsLoadingQuest] = useState(false);
+  const questRewardedRef = useRef(false);
+  const statusFlagsRef = useRef({ talking: false, distracted: false });
   const [level, setLevel] = useState(1);
   const [currentXP, setCurrentXP] = useState(0);
 
@@ -58,6 +62,20 @@ export default function Home() {
     return `${minutes}:${seconds}`;
   }, [elapsedSeconds]);
 
+  const formatMinutesSeconds = (totalSeconds: number) => {
+    const minutes = Math.floor(totalSeconds / 60)
+      .toString()
+      .padStart(2, "0");
+    const seconds = (totalSeconds % 60).toString().padStart(2, "0");
+    return `${minutes}:${seconds}`;
+  };
+
+  useEffect(() => {
+    const isTalking = Boolean((status as any)?.status?.talking);
+    const isDistracted = Boolean((status as any)?.status?.distracted);
+    statusFlagsRef.current = { talking: isTalking, distracted: isDistracted };
+  }, [status]);
+
   useEffect(() => {
     if (!hasStarted || !isRunning) {
       return;
@@ -65,23 +83,17 @@ export default function Home() {
 
     const timer = setInterval(() => {
       setElapsedSeconds((prev) => prev + 1);
+      setCleanFocusSeconds((prev) => {
+        const { talking, distracted } = statusFlagsRef.current;
+        if (talking || distracted) {
+          return 0;
+        }
+        return prev + 1;
+      });
     }, 1000);
 
-    const totalBatches = Math.floor(elapsedSeconds / coinAwardIntervalSeconds);
-    if (totalBatches > lastAwardedBatchRef.current) {
-      const newlyEarned = totalBatches - lastAwardedBatchRef.current;
-      
-      // Award Coins (Existing)
-      setCoinBalance((prev) => prev + newlyEarned * 500);
-
-      // Award XP (New) - e.g., 10 XP per batch
-      addExperience(newlyEarned * 10); 
-
-      lastAwardedBatchRef.current = totalBatches;
-
     return () => clearInterval(timer);
-    }
-  }, [elapsedSeconds, hasStarted, isRunning, coinAwardIntervalSeconds, level, currentXP]);
+  }, [hasStarted, isRunning]);
 
   useEffect(() => {
     if (!hasStarted || !clientId.trim()) {
@@ -147,6 +159,27 @@ export default function Home() {
   }, [elapsedSeconds, hasStarted, isRunning, coinAwardIntervalSeconds]);
 
   useEffect(() => {
+    if (!activeQuest || questCompleted || !hasStarted || !isRunning) {
+      return;
+    }
+
+    const targetMinutes = Number(
+      activeQuest.target_minutes ?? activeQuest.target ?? activeQuest.minutes ?? 0
+    );
+    if (!targetMinutes || Number.isNaN(targetMinutes)) {
+      return;
+    }
+
+    if (cleanFocusSeconds >= targetMinutes * 60 && !questRewardedRef.current) {
+      questRewardedRef.current = true;
+      setQuestCompleted(true);
+      if (activeQuest.reward_gold) {
+        setCoinBalance((prev) => prev + Number(activeQuest.reward_gold));
+      }
+    }
+  }, [activeQuest, cleanFocusSeconds, hasStarted, isRunning, questCompleted]);
+
+  useEffect(() => {
     const storedCoinsRaw = localStorage.getItem("cramsinoCoins");
     const storedCoins = storedCoinsRaw === null ? 10000 : Number.parseInt(storedCoinsRaw, 10);
 
@@ -163,6 +196,41 @@ export default function Home() {
     localStorage.setItem("cramsinoCoins", coinBalance.toString());
     window.dispatchEvent(new Event("cramsinoCoinsUpdated"));
   }, [coinBalance]);
+
+  useEffect(() => {
+    const storedQuest = localStorage.getItem("cramsinoActiveQuest");
+    if (storedQuest) {
+      try {
+        const parsed = JSON.parse(storedQuest);
+        if (parsed.quest) {
+          const targetMinutes = Number(
+            parsed.quest.target_minutes ?? parsed.quest.target ?? parsed.quest.minutes ?? 0
+          );
+          setActiveQuest({
+            ...parsed.quest,
+            target_minutes: Number.isNaN(targetMinutes) ? 0 : targetMinutes,
+          });
+        } else {
+          setActiveQuest(null);
+        }
+        setQuestCompleted(Boolean(parsed.completed));
+        questRewardedRef.current = Boolean(parsed.completed);
+      } catch {
+        // Ignore malformed quest data
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!activeQuest) {
+      localStorage.removeItem("cramsinoActiveQuest");
+      return;
+    }
+    localStorage.setItem(
+      "cramsinoActiveQuest",
+      JSON.stringify({ quest: activeQuest, completed: questCompleted })
+    );
+  }, [activeQuest, questCompleted]);
 
   const onStart = () => {
     setHasStarted(true);
@@ -182,6 +250,7 @@ export default function Home() {
     setTalkingStreak(0);
     setDistractedStreak(0);
     setStatus(null);
+    setCleanFocusSeconds(0);
     lastAwardedBatchRef.current = 0;
   };
 
@@ -203,10 +272,18 @@ export default function Home() {
               })
           });
           const quest = await res.json();
-          setActiveQuest(quest);
-          
-          // Optional: Save to local storage for persistence
-          // localStorage.setItem("current_quest", JSON.stringify(quest));
+          const targetMinutes = Number(
+            quest.target_minutes ?? quest.target ?? quest.minutes ?? 5
+          );
+
+          setActiveQuest({
+            ...quest,
+            type: quest.type || "no_distractions",
+            target_minutes: targetMinutes,
+          });
+          setQuestCompleted(false);
+          setCleanFocusSeconds(0);
+          questRewardedRef.current = false;
       } catch (e) {
           console.error("Quest gen failed", e);
       } finally {
@@ -407,8 +484,17 @@ export default function Home() {
                                 
                                 <div className="flex gap-2 text-xs font-mono uppercase text-slate-400">
                                     <span className="px-2 py-1 bg-white rounded border">Condition: {activeQuest.type}</span>
-                                    <span className="px-2 py-1 bg-white rounded border">Target: {activeQuest.target}</span>
+                                    <span className="px-2 py-1 bg-white rounded border">Target: {activeQuest.target_minutes} min</span>
                                 </div>
+
+                                <div className="mt-4 text-xs text-slate-500">
+                                  Clean focus: {formatMinutesSeconds(cleanFocusSeconds)} / {formatMinutesSeconds((activeQuest.target_minutes || 0) * 60)}
+                                </div>
+                                {questCompleted && (
+                                  <div className="mt-2 text-sm font-semibold text-emerald-600">
+                                    Quest completed! Reward granted.
+                                  </div>
+                                )}
                             </div>
                           ) : (
                             <div className="text-center py-8 text-slate-400 italic">
