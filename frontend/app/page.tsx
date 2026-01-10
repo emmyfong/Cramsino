@@ -169,6 +169,8 @@ export default function Home() {
 
   const handleSpendPack = (amount: number) => {
     setCoinBalance((prev) => Math.max(0, prev - amount));
+  };
+
   const handleGenerateQuest = async () => {
       setIsLoadingQuest(true);
       try {
