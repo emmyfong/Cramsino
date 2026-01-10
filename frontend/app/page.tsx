@@ -1,65 +1,68 @@
-import Image from "next/image";
+import { GachaPack } from "@/components/features/gacha-pack";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="flex min-h-[calc(100vh-4rem)] bg-slate-50">
+      
+      {/* LEFT SIDE*/}
+      <div className="w-1/2 p-12 flex flex-col justify-center space-y-8 border-r border-slate-200 bg-white">
+        <div className="space-y-2">
+          <h1 className="text-5xl font-extrabold tracking-tight text-slate-900">
+            Welcome Back, <span className="text-indigo-600">Player</span>
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+          <p className="text-slate-500 text-xl">Here is your daily study progress.</p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/*stats*/}
+        <div className="grid gap-6">
+          <StatCard title="Daily Streak" value="12 Days" icon="🔥" />
+          <StatCard title="Tasks Completed" value="8/10" icon="✅" />
+          
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-slate-500">XP to Next Level</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold mb-2">2,450 / 3,000</div>
+              <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full bg-indigo-600 w-[80%] rounded-full" />
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      </main>
+      </div>
+
+      {/* RIGHT SIDE*/}
+      <div className="w-1/2 relative bg-slate-100 flex items-center justify-center overflow-hidden">
+        
+        {/*Background Elements */}
+        <div className="absolute inset-0 grid grid-cols-6 grid-rows-6 opacity-5">
+            {Array.from({ length: 36 }).map((_, i) => (
+                <div key={i} className="border border-indigo-900"></div>
+            ))}
+        </div>
+        
+        <div className="z-10">
+            <GachaPack />
+        </div>
+
+      </div>
     </div>
   );
+}
+
+function StatCard({ title, value, icon }: { title: string, value: string, icon: string }) {
+  return (
+    <Card>
+      <div className="flex items-center p-6 space-x-4">
+        <div className="text-4xl bg-slate-100 p-3 rounded-xl">{icon}</div>
+        <div>
+          <p className="text-sm font-medium text-slate-500">{title}</p>
+          <h3 className="text-2xl font-bold">{value}</h3>
+        </div>
+      </div>
+    </Card>
+  )
 }
