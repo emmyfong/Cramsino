@@ -39,6 +39,7 @@ create table if not exists user_cards (
     id uuid primary key default gen_random_uuid(),
     user_id uuid not null references auth.users(id) on delete cascade,
     card_id uuid not null references cards(id) on delete cascade,
+    type text not null,
     acquired_at timestamptz not null default now()
 );
 
