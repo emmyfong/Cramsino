@@ -37,7 +37,8 @@ export async function POST(req: Request) {
         "reward_gold": number (50-500),
         "reward_xp": number (20-100),
         "type": "no_distractions" | "no_talking" | "min_duration",
-        "target": number (e.g. 0 for distractions, or 30 for minutes)
+        "target": number (e.g. 0 for distractions, or 30 for minutes),
+        "target_minutes": number (minutes required for no_distractions/no_talking)
       }
     `;
 
