@@ -1,1 +1,3 @@
 visionenv/
+.env
+.client_id

@@ -6,6 +6,15 @@ import time
 import math
 import pyaudio
 import threading
+import json
+import uuid
+
+try:
+    import websocket
+except ImportError:
+    websocket = None
+
+from dotenv import load_dotenv
 
 # ------------------ CONFIG ------------------
 LOOK_AWAY_YAW_THRESHOLD = 20     # degrees (side to side)
@@ -19,6 +28,75 @@ FRAME_RATE = 5                   # frames per second
 # --------------------------------------------
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+load_dotenv()
+
+STATUS_WS_URL = os.getenv("STATUS_WS_URL")
+STATUS_CLIENT_ID = os.getenv("STATUS_CLIENT_ID")
+CLIENT_ID_PATH = os.getenv("STATUS_CLIENT_ID_PATH", ".client_id")
+
+_ws_app = None
+_ws_connected = False
+
+
+def _load_or_create_client_id():
+    if STATUS_CLIENT_ID:
+        return STATUS_CLIENT_ID
+
+    try:
+        if os.path.exists(CLIENT_ID_PATH):
+            with open(CLIENT_ID_PATH, "r", encoding="utf-8") as f:
+                client_id = f.read().strip()
+                if client_id:
+                    return client_id
+    except OSError:
+        pass
+
+    client_id = str(uuid.uuid4())
+    try:
+        with open(CLIENT_ID_PATH, "w", encoding="utf-8") as f:
+            f.write(client_id)
+    except OSError:
+        pass
+    return client_id
+
+
+def _start_status_ws():
+    global _ws_app, _ws_connected
+    if not STATUS_WS_URL or websocket is None:
+        return
+
+    def _on_open(_):
+        global _ws_connected
+        _ws_connected = True
+
+    def _on_close(_, __, ___):
+        global _ws_connected
+        _ws_connected = False
+
+    def _on_error(_, __):
+        global _ws_connected
+        _ws_connected = False
+
+    _ws_app = websocket.WebSocketApp(
+        STATUS_WS_URL,
+        on_open=_on_open,
+        on_close=_on_close,
+        on_error=_on_error,
+    )
+    threading.Thread(target=_ws_app.run_forever, daemon=True).start()
+
+
+def _send_status(state):
+    if not _ws_app or not _ws_connected:
+        return
+    payload = {
+        "client_id": _load_or_create_client_id(),
+        "status": state,
+    }
+    try:
+        _ws_app.send(json.dumps(payload))
+    except Exception:
+        pass
 
 mp_face = mp.solutions.face_mesh
 face_mesh = mp_face.FaceMesh(refine_landmarks=True)
@@ -142,6 +220,9 @@ def get_attention_state():
 # ------------------ TEST LOOP ------------------
 if __name__ == "__main__":
     print("Starting attention monitor. Press Ctrl+C to stop.")
+    client_id = _load_or_create_client_id()
+    print(f"Client ID: {client_id}")
+    _start_status_ws()
     try:
         while True:
             state = get_attention_state()
@@ -155,6 +236,7 @@ if __name__ == "__main__":
                     f"Distracted: {state['distracted']} "
                     f"(Yaw: {state['debug_yaw']:.1f}°, Pitch: {state['debug_pitch']:.1f}°)"
                 )
+                _send_status(state)
             time.sleep(1 / FRAME_RATE)
     except KeyboardInterrupt:
         print("\nStopping monitor...")
