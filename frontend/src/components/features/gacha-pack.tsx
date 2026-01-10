@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { ThreeDObject } from "./three-d-pack";
+import { BalatroCard, type CardItem } from "./balatro-card";
 
 type GachaState = "idle" | "centering" | "spinning" | "ripping" | "flash" | "reveal";
 
@@ -16,12 +17,53 @@ const MOCK_PULL = [
   { id: 5, name: "Dragon Scale", rarity: "Legendary" },
 ];
 
-export function GachaPack() {
+type GachaPackProps = {
+  balance: number;
+  packCost: number;
+  canOpen: boolean;
+  onSpend: (amount: number) => void;
+  apiBase: string;
+};
+
+type ApiCard = {
+  id: string;
+  name: string;
+  rarity: string;
+  image_url: string;
+  aura: string;
+  type: string;
+};
+
+export function GachaPack({ balance, packCost, canOpen, onSpend, apiBase }: GachaPackProps) {
   const [status, setStatus] = useState<GachaState>("idle");
   const [cards, setCards] = useState(MOCK_PULL);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handlePackClick = () => {
-    if (status !== "idle") return;
+  const handlePackClick = async () => {
+    if (status !== "idle" || isLoading) return;
+    if (!canOpen) {
+      setErrorMessage("Not enough coins to open a pack.");
+      return;
+    }
+    setErrorMessage("");
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(`${apiBase}/pack`);
+      if (response.ok) {
+        const data = await response.json();
+        if (Array.isArray(data?.cards) && data.cards.length > 0) {
+          setCards(data.cards as ApiCard[]);
+        }
+      }
+    } catch {
+      // Keep existing cards on error.
+    } finally {
+      setIsLoading(false);
+    }
+
+    onSpend(packCost);
     setStatus("centering");
     setTimeout(() => setStatus("spinning"), 1000);
     setTimeout(() => setStatus("ripping"), 3500);
@@ -36,15 +78,25 @@ export function GachaPack() {
 
   return (
     <>
-      <div 
-        className={`relative h-80 w-56 cursor-pointer group perspective-1000 z-10 transition-opacity duration-500 ${isCinematic ? "opacity-0 pointer-events-none delay-500" : ""}`}
-        onClick={handlePackClick}
-      >
-        <ThreeDObject className="h-full w-full">
-           <PackVisual />
-        </ThreeDObject>
-        <div className="absolute -bottom-10 w-full text-center animate-bounce text-slate-500 font-bold text-sm">
-          Click to Open
+      <div className="flex flex-col items-center gap-4">
+        <div className="flex items-center gap-3 rounded-full bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm">
+          <span>Coins: {balance}</span>
+          <span className="h-4 w-px bg-slate-200" />
+          <span>Pack Cost: {packCost}</span>
+        </div>
+        {errorMessage && (
+          <div className="text-xs font-semibold text-rose-500">{errorMessage}</div>
+        )}
+        <div
+          className={`relative h-80 w-56 cursor-pointer group perspective-1000 z-10 transition-opacity duration-500 ${isCinematic || isLoading ? "opacity-0 pointer-events-none delay-500" : ""}`}
+          onClick={handlePackClick}
+        >
+          <ThreeDObject className="h-full w-full">
+            <PackVisual />
+          </ThreeDObject>
+          <div className="absolute -bottom-10 w-full text-center animate-bounce text-slate-500 font-bold text-sm">
+            Click to Open
+          </div>
         </div>
       </div>
 
@@ -120,9 +172,10 @@ export function GachaPack() {
                         visible: { transition: { staggerChildren: 0.1, delayChildren: 0.2 } }
                       }}
                     >
-                      {cards.map((card) => (
+                    {cards.map((card, index) => (
                         <motion.div
-                          key={card.id}
+                          key={card.id ?? index}
+                          className="pointer-events-auto"
                           variants={{
                             hidden: { y: 150, opacity: 0, scale: 0.5, rotateX: -45 },
                             visible: { 
@@ -131,7 +184,7 @@ export function GachaPack() {
                             }
                           }}
                         >
-                          <ResultCard card={card} />
+                          <BalatroCard item={toBalatroCard(card, index)} />
                         </motion.div>
                       ))}
                     </motion.div>
@@ -298,18 +351,42 @@ function PackVisual() {
   );
 }
 
-function ResultCard({ card }: { card: { name: string, rarity: string } }) {
-  const isLegendary = card.rarity === "Legendary";
-  return (
-    <div className={`h-80 rounded-lg p-1.5 relative group transition-transform hover:-translate-y-4 hover:scale-105 duration-300 ${isLegendary ? 'bg-gradient-to-b from-yellow-300 via-yellow-500 to-amber-600 shadow-[0_0_40px_rgba(250,204,21,0.6)]' : 'bg-slate-700 shadow-xl'}`}>
-      <div className="h-full w-full bg-slate-900 rounded-md flex flex-col items-center justify-center p-4 text-center border border-white/10 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-        <div className="text-6xl mb-6 drop-shadow-lg">{isLegendary ? "🐲" : "⚔️"}</div>
-        <div className="font-black text-white text-xl uppercase tracking-tight">{card.name}</div>
-        <div className={`text-xs uppercase tracking-[0.2em] mt-2 font-bold py-1 px-3 rounded-full ${isLegendary ? "bg-yellow-500 text-yellow-950" : "bg-slate-800 text-slate-400"}`}>
-          {card.rarity}
-        </div>
-      </div>
-    </div>
-  )
+function getDisplayImageUrl(url?: string) {
+  if (!url) return "";
+  if (!url.includes("drive.google.com")) return url;
+
+  const idMatch =
+    url.match(/\/d\/([^/]+)/) ||
+    url.match(/id=([^&]+)/);
+
+  if (!idMatch) return url;
+
+  return `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
+}
+
+function toBalatroCard(card: { name: string; rarity: string; image_url?: string; aura?: string; type?: string }, index: number): CardItem {
+  const rarity = card.rarity?.toLowerCase() || "common";
+  const finish = (card.type || "base").toLowerCase() as CardItem["finish"];
+
+  const palette: Record<string, { color: string; glowColor: string }> = {
+    common: { color: "bg-slate-200", glowColor: "rgba(148,163,184,0.6)" },
+    uncommon: { color: "bg-emerald-200", glowColor: "rgba(52,211,153,0.6)" },
+    rare: { color: "bg-sky-200", glowColor: "rgba(56,189,248,0.6)" },
+    "super rare": { color: "bg-indigo-200", glowColor: "rgba(129,140,248,0.7)" },
+    legendary: { color: "bg-yellow-200", glowColor: "rgba(250,204,21,0.8)" },
+  };
+
+  const { color, glowColor } = palette[rarity] || palette.common;
+
+  return {
+    id: index + 1,
+    name: card.name,
+    rarity: card.rarity,
+    color,
+    glowColor,
+    finish,
+    cardArt: getDisplayImageUrl(card.image_url),
+    auraValue: card.aura ? Number.parseInt(card.aura, 10) : undefined,
+    cardType: card.type,
+  };
 }
