@@ -34,6 +34,8 @@ export default function Home() {
   const packCost = 500;
   const coinAwardIntervalSeconds = 5;
   const lastAwardedBatchRef = useRef(0);
+  const [activeQuest, setActiveQuest] = useState<any>(null);
+  const [isLoadingQuest, setIsLoadingQuest] = useState(false);
 
   // Mock data for streak
   const today = new Date();
@@ -167,6 +169,29 @@ export default function Home() {
 
   const handleSpendPack = (amount: number) => {
     setCoinBalance((prev) => Math.max(0, prev - amount));
+  const handleGenerateQuest = async () => {
+      setIsLoadingQuest(true);
+      try {
+          // In a real scenario, you'd pass REAL stats from the previous session.
+          // For now, we mock "Average" stats to get a standard quest.
+          const res = await fetch("/api", { // Ensure this matches your folder path!
+              method: "POST",
+              body: JSON.stringify({
+                  duration: 25,
+                  distractionCount: 2,
+                  wasTalking: false
+              })
+          });
+          const quest = await res.json();
+          setActiveQuest(quest);
+          
+          // Optional: Save to local storage for persistence
+          // localStorage.setItem("current_quest", JSON.stringify(quest));
+      } catch (e) {
+          console.error("Quest gen failed", e);
+      } finally {
+          setIsLoadingQuest(false);
+      }
   };
 
   return (
@@ -294,14 +319,43 @@ export default function Home() {
 
                 {/* Tasks Section */}
                 <Card className="shadow-md bg-white">
-                  <CardHeader>
-                      <CardTitle>Daily Quests</CardTitle>
-                      <CardDescription>Complete tasks to earn Gacha Currency.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                      <TaskList />
-                  </CardContent>
-                </Card>
+                      <CardHeader className="flex flex-row items-center justify-between">
+                          <div>
+                            <CardTitle>Active Quest</CardTitle>
+                            <CardDescription>Generate a mission for your study session.</CardDescription>
+                          </div>
+                          <Button 
+                            onClick={handleGenerateQuest} 
+                            disabled={isLoadingQuest}
+                            size="sm"
+                            className="bg-indigo-600 text-white"
+                          >
+                            {isLoadingQuest ? "Generating..." : "New Quest!"}
+                          </Button>
+                      </CardHeader>
+                      <CardContent>
+                          {activeQuest ? (
+                            <div className="p-4 border-2 border-indigo-100 rounded-xl bg-indigo-50/50">
+                                <div className="flex justify-between items-start mb-2">
+                                    <h3 className="font-bold text-lg text-indigo-900">{activeQuest.title}</h3>
+                                    <Badge className="bg-amber-400 text-amber-900 hover:bg-amber-500">
+                                        {activeQuest.reward_gold} G
+                                    </Badge>
+                                </div>
+                                <p className="text-sm text-slate-600 mb-4">{activeQuest.description}</p>
+                                
+                                <div className="flex gap-2 text-xs font-mono uppercase text-slate-400">
+                                    <span className="px-2 py-1 bg-white rounded border">Condition: {activeQuest.type}</span>
+                                    <span className="px-2 py-1 bg-white rounded border">Target: {activeQuest.target}</span>
+                                </div>
+                            </div>
+                          ) : (
+                            <div className="text-center py-8 text-slate-400 italic">
+                                No active quest. Click the button to start.
+                            </div>
+                          )}
+                      </CardContent>
+                  </Card>
 
               </div>
            </ConditionalScrollArea>
@@ -355,8 +409,9 @@ export default function Home() {
             </motion.div>
         )}
       </AnimatePresence>
-
     </div>
+
+    
   );
 }
 
