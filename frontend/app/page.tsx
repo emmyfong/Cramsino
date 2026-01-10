@@ -39,6 +39,7 @@ export default function Home() {
   const [cleanFocusSeconds, setCleanFocusSeconds] = useState(0);
   const [isLoadingQuest, setIsLoadingQuest] = useState(false);
   const questRewardedRef = useRef(false);
+  const statusFlagsRef = useRef({ talking: false, distracted: false });
   const [level, setLevel] = useState(1);
   const [currentXP, setCurrentXP] = useState(0);
 
@@ -70,6 +71,12 @@ export default function Home() {
   };
 
   useEffect(() => {
+    const isTalking = Boolean((status as any)?.status?.talking);
+    const isDistracted = Boolean((status as any)?.status?.distracted);
+    statusFlagsRef.current = { talking: isTalking, distracted: isDistracted };
+  }, [status]);
+
+  useEffect(() => {
     if (!hasStarted || !isRunning) {
       return;
     }
@@ -77,30 +84,16 @@ export default function Home() {
     const timer = setInterval(() => {
       setElapsedSeconds((prev) => prev + 1);
       setCleanFocusSeconds((prev) => {
-        const isTalking = Boolean((status as any)?.status?.talking);
-        const isDistracted = Boolean((status as any)?.status?.distracted);
-        if (isTalking || isDistracted) {
+        const { talking, distracted } = statusFlagsRef.current;
+        if (talking || distracted) {
           return 0;
         }
         return prev + 1;
       });
     }, 1000);
 
-    const totalBatches = Math.floor(elapsedSeconds / coinAwardIntervalSeconds);
-    if (totalBatches > lastAwardedBatchRef.current) {
-      const newlyEarned = totalBatches - lastAwardedBatchRef.current;
-      
-      // Award Coins (Existing)
-      setCoinBalance((prev) => prev + newlyEarned * 500);
-
-      // Award XP (New) - e.g., 10 XP per batch
-      addExperience(newlyEarned * 10); 
-
-      lastAwardedBatchRef.current = totalBatches;
-
     return () => clearInterval(timer);
-    }
-  }, [elapsedSeconds, hasStarted, isRunning, coinAwardIntervalSeconds, level, currentXP]);
+  }, [hasStarted, isRunning]);
 
   useEffect(() => {
     if (!hasStarted || !clientId.trim()) {
