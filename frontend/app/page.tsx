@@ -36,6 +36,11 @@ export default function Home() {
   const lastAwardedBatchRef = useRef(0);
   const [activeQuest, setActiveQuest] = useState<any>(null);
   const [isLoadingQuest, setIsLoadingQuest] = useState(false);
+  const [level, setLevel] = useState(1);
+  const [currentXP, setCurrentXP] = useState(0);
+
+  const xpToNextLevel = level * 100;
+  const xpPercentage = Math.min(100, Math.max(0, (currentXP / xpToNextLevel) * 100));
 
   // Mock data for streak
   const today = new Date();
@@ -62,8 +67,21 @@ export default function Home() {
       setElapsedSeconds((prev) => prev + 1);
     }, 1000);
 
+    const totalBatches = Math.floor(elapsedSeconds / coinAwardIntervalSeconds);
+    if (totalBatches > lastAwardedBatchRef.current) {
+      const newlyEarned = totalBatches - lastAwardedBatchRef.current;
+      
+      // Award Coins (Existing)
+      setCoinBalance((prev) => prev + newlyEarned * 500);
+
+      // Award XP (New) - e.g., 10 XP per batch
+      addExperience(newlyEarned * 10); 
+
+      lastAwardedBatchRef.current = totalBatches;
+
     return () => clearInterval(timer);
-  }, [hasStarted, isRunning]);
+    }
+  }, [elapsedSeconds, hasStarted, isRunning, coinAwardIntervalSeconds, level, currentXP]);
 
   useEffect(() => {
     if (!hasStarted || !clientId.trim()) {
@@ -196,6 +214,38 @@ export default function Home() {
       }
   };
 
+  const addExperience = (amount: number) => {
+    let newXP = currentXP + amount;
+    let newLevel = level;
+    let required = newLevel * 100;
+
+    // While loop handles multi-level ups (e.g. if you gain huge XP at once)
+    while (newXP >= required) {
+      newXP -= required;
+      newLevel++;
+      required = newLevel * 100;
+      // Optional: You could trigger a "Level Up" toast/sound here
+    }
+
+    setLevel(newLevel);
+    setCurrentXP(newXP);
+  };
+
+  // LOAD on mount
+  useEffect(() => {
+    const storedLevel = parseInt(localStorage.getItem("cramsinoLevel") || "1", 10);
+    const storedXP = parseInt(localStorage.getItem("cramsinoXP") || "0", 10);
+    
+    setLevel(isNaN(storedLevel) ? 1 : storedLevel);
+    setCurrentXP(isNaN(storedXP) ? 0 : storedXP);
+  }, []);
+
+  // SAVE on change
+  useEffect(() => {
+    localStorage.setItem("cramsinoLevel", level.toString());
+    localStorage.setItem("cramsinoXP", currentXP.toString());
+  }, [level, currentXP]);
+
   return (
     // FIX 1: 'h-auto' allows scrolling on mobile/split. 'lg:h-[...]' locks it on desktop.
     <div className="flex h-auto lg:h-[calc(100vh-4rem)] w-full flex-col lg:flex-row bg-slate-50 relative overflow-x-hidden lg:overflow-hidden">
@@ -270,20 +320,29 @@ export default function Home() {
                           <Trophy className="h-4 w-4 text-indigo-400" />
                         </CardHeader>
                         <CardContent>
-                          <div className="text-3xl font-bold mb-1 text-white">Level 42</div>
-                          <p className="text-xs text-slate-400 mb-6">2,450 / 3,000 XP</p>
+                          {/* DYNAMIC LEVEL */}
+                          <div className="text-3xl font-bold mb-1 text-white">Level {level}</div>
+                          
+                          {/* DYNAMIC XP TEXT */}
+                          <p className="text-xs text-slate-400 mb-6">
+                              {Math.floor(currentXP)} / {xpToNextLevel} XP
+                          </p>
+                          
+                          {/* PROGRESS BAR */}
                           <div className="h-4 w-full bg-slate-800 rounded-full overflow-hidden relative">
                               <div className="absolute inset-0 bg-slate-700/30 w-full"></div>
                               <motion.div
-                                initial={{ width: 0 }}
-                                animate={{ width: "65%" }}
-                                transition={{ duration: 1.5, ease: "easeOut" }}
+                                // Animate the width based on percentage
+                                animate={{ width: `${xpPercentage}%` }}
+                                transition={{ duration: 0.5, ease: "easeOut" }}
                                 className="h-full bg-indigo-500 rounded-full relative"
                               >
                                 <div className="absolute right-0 top-0 h-full w-4 bg-indigo-400 blur-[4px] opacity-50"></div>
                               </motion.div>
                           </div>
-                          <p className="text-right text-xs text-indigo-300 mt-2">+20 XP from last session</p>
+                          <p className="text-right text-xs text-indigo-300 mt-2">
+                              Next Level: {xpToNextLevel - currentXP} XP needed
+                          </p>
                         </CardContent>
                     </div>
                   </Card>
