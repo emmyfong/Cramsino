@@ -21,8 +21,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        suppressHydrationWarning={true}  // <--- ADD THIS LINE
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-background`}
+        suppressHydrationWarning={true} 
+        className={`${inter.variable} antialiased min-h-screen bg-background`}
       >
         <Navbar />
         <main>
