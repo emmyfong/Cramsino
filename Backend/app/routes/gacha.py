@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from app.core.auth import get_current_user
 from app.db.supabase import supabase
-from app.services.gacha_logic import roll_rarity
+from app.services.gacha_logic import roll_rarity, roll_type_for_rarity
 
 router = APIRouter(prefix="/gacha", tags=["gacha"])
 
@@ -12,6 +12,7 @@ def pull_cards(pull_count: int = 1, user=Depends(get_current_user)):
 
     for _ in range(pull_count):
         rarity = roll_rarity()
+        card_type = roll_type_for_rarity(rarity)
         card = (
             supabase
             .table("cards")
@@ -25,9 +26,12 @@ def pull_cards(pull_count: int = 1, user=Depends(get_current_user)):
         supabase.table("user_cards").insert({
             "user_id": user.id,
             "card_id": card["id"],
+            "type": card_type,
         }).execute()
 
-        cards_pulled.append(card)
+        card_with_type = dict(card)
+        card_with_type["type"] = card_type
+        cards_pulled.append(card_with_type)
 
     supabase.table("gacha_logs").insert({
         "user_id": user.id,
