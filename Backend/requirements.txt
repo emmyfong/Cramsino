@@ -19,6 +19,7 @@ opencv-python==4.12.0.88
 packaging==25.0
 pillow==12.1.0
 protobuf==3.20.3
+PyAudio==0.2.14
 pycparser==2.23
 pydantic==2.12.5
 pydantic_core==2.41.5

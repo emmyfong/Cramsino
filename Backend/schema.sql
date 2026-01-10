@@ -29,7 +29,8 @@ create table if not exists cards (
     name text not null,
     rarity text not null,
     image_url text not null,
-    aura text not null
+    aura text not null,
+    type text not null
 );
 
 create index if not exists idx_cards_rarity on cards(rarity);
