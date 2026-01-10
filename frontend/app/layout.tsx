@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-// Import the Navbar we created earlier
 import { Navbar } from "@/components/layout/navbar";
 
 const inter = Inter({
@@ -22,12 +21,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${inter.variable} antialiased min-h-screen bg-background font-sans`}
+        suppressHydrationWarning={true}  // <--- ADD THIS LINE
+        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-background`}
       >
-        {/* The Navbar sits at the top of the body so it persists across all pages */}
         <Navbar />
-        
-        {/* Main wrapper content */}
         <main>
           {children}
         </main>
