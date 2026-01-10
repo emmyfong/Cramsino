@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Gacha Verse",
-  description: "A modular Next.js Gacha base",
+  title: "CRAMSINO",
+  description: "",
 };
 
 export default function RootLayout({
