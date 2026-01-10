@@ -4,46 +4,86 @@ import mediapipe as mp
 import numpy as np
 import time
 import math
+import pyaudio
+import threading
 
 # ------------------ CONFIG ------------------
-LOOK_AWAY_YAW_THRESHOLD = 25     # degrees
-MOUTH_OPEN_THRESHOLD = 0.03
-DISTRACTED_TIME_LIMIT = 5        # seconds
+LOOK_AWAY_YAW_THRESHOLD = 20     # degrees (side to side)
+LOOK_UP_PITCH_THRESHOLD = 15     # degrees (looking up away)
+LOOK_DOWN_PITCH_THRESHOLD = 30   # degrees (looking down is OK)
+MOUTH_OPEN_THRESHOLD = 0.01
+AUDIO_THRESHOLD = 300            # RMS threshold for detecting speech
+DISTRACTED_TIME_LIMIT = 0.3        # seconds
 NO_FACE_TIME_LIMIT = 10          # seconds
-FRAME_RATE = 5                   # frames per second for testing
+FRAME_RATE = 5                   # frames per second
 # --------------------------------------------
 
-# Suppress TensorFlow/MediaPipe logs
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 mp_face = mp.solutions.face_mesh
 face_mesh = mp_face.FaceMesh(refine_landmarks=True)
 
-# Use default camera (0) - should work for others on their own machines
 cap = cv2.VideoCapture(0)
 
 last_face_time = time.time()
 distracted_start = None
+audio_levels = []
+is_audio_running = True
 
-def distance(p1, p2):
-    return math.dist(p1, p2)
+# ------------------ AUDIO MONITOR ------------------
+def audio_monitor():
+    """Monitor microphone audio levels in background thread"""
+    global audio_levels, is_audio_running
+    try:
+        p = pyaudio.PyAudio()
+        stream = p.open(format=pyaudio.paInt16, channels=1, rate=44100,
+                        input=True, frames_per_buffer=1024)
+        
+        while is_audio_running:
+            data = np.frombuffer(stream.read(1024, exception_on_overflow=False), dtype=np.int16)
+            rms = np.sqrt(np.mean(data**2))
+            audio_levels.append(rms)
+            if len(audio_levels) > 10:
+                audio_levels.pop(0)
+        
+        stream.stop_stream()
+        stream.close()
+        p.terminate()
+    except Exception as e:
+        print(f"Audio monitoring error: {e}")
 
-def get_head_yaw(landmarks):
+audio_thread = threading.Thread(target=audio_monitor, daemon=True)
+audio_thread.start()
+
+# ------------------ HEAD / MOUTH ------------------
+def get_head_yaw_and_pitch(landmarks):
+    """Calculate both horizontal (yaw) and vertical (pitch) head orientation"""
     left_eye = landmarks[33]
     right_eye = landmarks[263]
     nose = landmarks[1]
+    chin = landmarks[152]
+    forehead = landmarks[10]
 
+    # Yaw (left-right)
     eye_dx = right_eye.x - left_eye.x
     nose_offset = nose.x - (left_eye.x + right_eye.x) / 2
-
     yaw = nose_offset / eye_dx * 60
-    return yaw
+
+    # Pitch (up-down)
+    face_height = abs(forehead.y - chin.y)
+    nose_vertical_offset = nose.y - (forehead.y + chin.y)/2
+    pitch = nose_vertical_offset / face_height * 60
+
+    return yaw, pitch
 
 def is_talking(landmarks):
+    """Detect talking using mouth landmarks only"""
     upper_lip = landmarks[13]
     lower_lip = landmarks[14]
-    return abs(upper_lip.y - lower_lip.y) > MOUTH_OPEN_THRESHOLD
+    mouth_open = abs(upper_lip.y - lower_lip.y) > MOUTH_OPEN_THRESHOLD
+    return mouth_open
 
+# ------------------ ATTENTION ------------------
 def get_attention_state():
     global last_face_time, distracted_start
 
@@ -52,7 +92,7 @@ def get_attention_state():
         return None
 
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    result = face_mesh.process(rgb)
+    face_result = face_mesh.process(rgb)
 
     now = time.time()
 
@@ -60,21 +100,31 @@ def get_attention_state():
         "face_present": False,
         "looking_forward": False,
         "talking": False,
-        "distracted": False
+        "distracted": False,
+        "debug_yaw": 0,
+        "debug_pitch": 0
     }
 
-    if not result.multi_face_landmarks:
+    if not face_result.multi_face_landmarks:
         if now - last_face_time > NO_FACE_TIME_LIMIT:
             state["distracted"] = True
         return state
 
     last_face_time = now
-    landmarks = result.multi_face_landmarks[0].landmark
+    landmarks = face_result.multi_face_landmarks[0].landmark
 
     state["face_present"] = True
 
-    yaw = get_head_yaw(landmarks)
-    state["looking_forward"] = abs(yaw) < LOOK_AWAY_YAW_THRESHOLD
+    yaw, pitch = get_head_yaw_and_pitch(landmarks)
+    state["debug_yaw"] = yaw
+    state["debug_pitch"] = pitch
+
+    # Looking forward if yaw within threshold and pitch not looking up too far
+    state["looking_forward"] = (
+        abs(yaw) < LOOK_AWAY_YAW_THRESHOLD and
+        pitch < LOOK_UP_PITCH_THRESHOLD
+    )
+
     state["talking"] = is_talking(landmarks)
 
     distracted = not state["looking_forward"] or state["talking"]
@@ -90,22 +140,25 @@ def get_attention_state():
     return state
 
 # ------------------ TEST LOOP ------------------
-print("Starting attention monitor. Press Ctrl+C to stop.")
-
-try:
-    while True:
-        state = get_attention_state()
-        if state:
-            print(
-                f"[{time.strftime('%H:%M:%S')}] "
-                f"Face: {state['face_present']}, "
-                f"Looking Forward: {state['looking_forward']}, "
-                f"Talking: {state['talking']}, "
-                f"Distracted: {state['distracted']}"
-            )
-        time.sleep(1 / FRAME_RATE)
-except KeyboardInterrupt:
-    print("Stopping monitor...")
-finally:
-    cap.release()
-    cv2.destroyAllWindows()
+if __name__ == "__main__":
+    print("Starting attention monitor. Press Ctrl+C to stop.")
+    try:
+        while True:
+            state = get_attention_state()
+            if state:
+                audio_level = np.mean(audio_levels) if audio_levels else 0
+                print(
+                    f"[{time.strftime('%H:%M:%S')}] "
+                    f"Face: {state['face_present']}, "
+                    f"Looking Forward: {state['looking_forward']}, "
+                    f"Talking: {state['talking']}, "
+                    f"Distracted: {state['distracted']} "
+                    f"(Yaw: {state['debug_yaw']:.1f}°, Pitch: {state['debug_pitch']:.1f}°)"
+                )
+            time.sleep(1 / FRAME_RATE)
+    except KeyboardInterrupt:
+        print("\nStopping monitor...")
+    finally:
+        is_audio_running = False
+        cap.release()
+        cv2.destroyAllWindows()
