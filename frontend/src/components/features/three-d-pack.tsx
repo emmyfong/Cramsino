@@ -52,9 +52,9 @@ export function ThreeDObject({ children, className, onClick, enabled = true }: T
         rotateX: enabled ? rotateX : 0,
         rotateY: enabled ? rotateY : 0,
       }}
-      className={cn("relative transition-all duration-200 ease-out", className)}
+      className={cn("relative transition-all duration-200 ease-out overflow-hidden", className)}
     >
-      <div style={{ transform: "translateZ(20px)" }} className="absolute inset-0 z-10">
+      <div style={{ transform: "translateZ(20px)" }} className="absolute inset-0 z-10 overflow-hidden">
         {children}
       </div>
 

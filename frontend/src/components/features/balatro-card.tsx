@@ -71,6 +71,7 @@ export function BalatroCard({ item }: BalatroCardProps) {
         width: "280px",
         height: "400px",
         perspective: "1000px",
+        pointerEvents: "auto",
       }}
       onMouseMove={handleMouseMove}
       onMouseEnter={() => setIsHovered(true)}
@@ -108,6 +109,12 @@ export function BalatroCard({ item }: BalatroCardProps) {
               className="absolute inset-0 w-full h-full object-cover z-10"
             />
           )}
+          
+          {/* Rarity Color Tint */}
+          <div 
+            className="absolute inset-0 pointer-events-none z-15 mix-blend-multiply opacity-20"
+            style={{ backgroundColor: item.glowColor }}
+          />
           
           {/* Placeholder icon if no images */}
           {!item.cardArt && !item.cardBase && (
@@ -193,6 +200,13 @@ export function BalatroCard({ item }: BalatroCardProps) {
                 Aura: {item.auraValue}
               </span>
             )}
+          </div>
+
+          {/* Bottom Center: Rarity */}
+          <div className="absolute bottom-4 left-0 right-0 flex justify-center z-30">
+            <span className="text-base font-bold text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)] uppercase tracking-wider">
+              {item.rarity}
+            </span>
           </div>
 
           {/* Bottom Left: Card Number */}
