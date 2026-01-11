@@ -189,7 +189,7 @@ export function GachaPack({ balance, packCost, canOpen, onSpend, apiBase }: Gach
               {status === "reveal" && (
                 <>
                     <motion.div 
-                      className="grid grid-cols-5 gap-8 w-full max-w-7xl px-8 z-50 pointer-events-auto"
+                      className="grid grid-cols-5 gap-16 w-full max-w-[100rem] px-16 z-50 pointer-events-auto"
                       initial="hidden"
                       animate="visible"
                       variants={{
