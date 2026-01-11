@@ -41,6 +41,13 @@ app.get("/status", (req, res) => {
   res.json(entry);
 });
 
+app.get("/cards", async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "supabase not configured" });
+  const { data, error } = await supabase.from("cards").select("*");
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data || []);
+});
+
 app.get("/pack", async (req, res) => {
   if (!supabase) {
     return res.status(500).json({ error: "supabase not configured" });
