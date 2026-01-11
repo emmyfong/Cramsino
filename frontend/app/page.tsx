@@ -30,6 +30,7 @@ export default function Home() {
   const [talkingStreak, setTalkingStreak] = useState(0);
   const [distractedStreak, setDistractedStreak] = useState(0);
   const [autoPaused, setAutoPaused] = useState(false);
+  const [showPauseNotice, setShowPauseNotice] = useState(false);
   const [coinBalance, setCoinBalance] = useState(0);
   const packCost = 500;
   const coinAwardIntervalSeconds = 5;
@@ -159,6 +160,15 @@ export default function Home() {
   }, [autoPaused, distractedStreak, hasStarted, talkingStreak]);
 
   useEffect(() => {
+    if (!showPauseNotice) {
+      return;
+    }
+
+    const timeout = setTimeout(() => setShowPauseNotice(false), 3000);
+    return () => clearTimeout(timeout);
+  }, [showPauseNotice]);
+
+  useEffect(() => {
     if (!hasStarted || !isRunning) {
       return;
     }
@@ -181,9 +191,7 @@ export default function Home() {
       return;
     }
 
-    const questType = String(activeQuest.type || "").toLowerCase();
-    const progressSeconds =
-      questType === "min_duration" ? elapsedSeconds : cleanFocusSeconds;
+    const progressSeconds = elapsedSeconds;
 
     if (progressSeconds >= targetMinutes * 60 && !questRewardedRef.current) {
       questRewardedRef.current = true;
@@ -326,6 +334,11 @@ export default function Home() {
   return (
     // FIX 1: 'h-auto' allows scrolling on mobile/split. 'lg:h-[...]' locks it on desktop.
     <div className="flex h-auto lg:h-[calc(100vh-4rem)] w-full flex-col lg:flex-row bg-slate-50 relative overflow-x-hidden lg:overflow-hidden">
+      {showPauseNotice && (
+        <div className="fixed top-20 right-6 z-[9999] rounded-xl bg-rose-500 px-4 py-3 text-sm font-semibold text-white shadow-xl">
+          Timer paused due to distraction.
+        </div>
+      )}
       
       {/* =======================
           LEFT SIDE: DASHBOARD 
@@ -489,7 +502,7 @@ export default function Home() {
                                 
                                 <div className="flex gap-2 text-xs font-mono uppercase text-slate-400">
                                     <span className="px-2 py-1 bg-white rounded border">
-                                      Target Minutes: {getQuestTargetMinutes(activeQuest)}
+                                      Condition: {formatMinutesSeconds(elapsedSeconds)} / {formatMinutesSeconds(getQuestTargetMinutes(activeQuest) * 60)}
                                     </span>
                                 </div>
                                 {questCompleted && (
