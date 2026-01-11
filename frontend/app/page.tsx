@@ -391,7 +391,7 @@ export default function Home() {
                           <Calendar
                               mode="single"
                               selected={today}
-                              className="rounded-md border shadow-sm pointer-events-none bg-white p-2"
+                              className="rounded-md border shadow-sm bg-white p-2"
                               modifiers={{ streak: streakDays }}
                               modifiersClassNames={{
                                 streak: "bg-orange-100 text-orange-700 font-bold relative overflow-visible after:content-['🔥'] after:absolute after:-top-1 after:-right-1 after:text-[0.6rem]"
