@@ -88,7 +88,7 @@ export function GachaPack({ balance, packCost, canOpen, onSpend, apiBase }: Gach
           <div className="text-xs font-semibold text-rose-500">{errorMessage}</div>
         )}
         <div
-          className={`relative h-80 w-56 cursor-pointer group perspective-1000 z-10 transition-opacity duration-500 ${isCinematic || isLoading ? "opacity-0 pointer-events-none delay-500" : ""}`}
+          className={`relative h-96 w-72 cursor-pointer group perspective-1000 z-10 transition-opacity duration-500 drop-shadow-2xl ${isCinematic || isLoading ? "opacity-0 pointer-events-none delay-500" : ""}`}
           onClick={handlePackClick}
         >
           <ThreeDObject className="h-full w-full">
@@ -109,6 +109,7 @@ export function GachaPack({ balance, packCost, canOpen, onSpend, apiBase }: Gach
               exit={{ opacity: 0 }}
               transition={{ duration: 0.8 }} 
               className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/95"
+              onClick={status === "reveal" ? reset : undefined}
             >
               
               {/* FX LAYERS */}
@@ -134,17 +135,24 @@ export function GachaPack({ balance, packCost, canOpen, onSpend, apiBase }: Gach
                   className="relative perspective-1000"
                 >
                   <div className="relative w-64 h-96">
-                     <div className="absolute inset-x-0 bottom-0 h-[85%] bg-gradient-to-br from-indigo-600 to-purple-800 rounded-b-xl border-x-4 border-b-4 border-yellow-400 shadow-[0_0_80px_rgba(250,204,21,0.6)] flex items-center justify-center overflow-hidden">
-                        <div className="text-white text-center animate-pulse">
-                          <Sparkles className="w-12 h-12 mx-auto text-yellow-300" />
-                        </div>
+                     <div className="absolute inset-x-0 bottom-0 h-[85%] rounded-b-xl border-x-4 border-b-4 border-yellow-400 shadow-[0_0_80px_rgba(250,204,21,0.6)] flex items-center justify-center overflow-hidden">
+                        <img 
+                          src="/Pack%20Art.png" 
+                          alt="Pack Art"
+                          className="absolute inset-0 w-full h-full object-cover"
+                        />
                      </div>
                      <motion.div 
                        animate={status === "ripping" ? { y: -200, x: 100, rotate: 60, opacity: 0, scale: 1.2 } : {}}
                        transition={{ duration: 0.4, ease: "backIn" }}
-                       className="absolute inset-x-0 top-0 h-[15%] bg-indigo-500 border-x-4 border-t-4 border-yellow-400 rounded-t-xl z-20"
+                       className="absolute inset-x-0 top-0 h-[15%] border-x-4 border-t-4 border-yellow-400 rounded-t-xl z-20 overflow-hidden"
                      >
-                         <div className="absolute -bottom-2 w-full h-4 bg-indigo-500" style={{ clipPath: "polygon(0% 0%, 5% 100%, 10% 0%, 15% 100%, 20% 0%, 25% 100%, 30% 0%, 35% 100%, 40% 0%, 45% 100%, 50% 0%, 55% 100%, 60% 0%, 65% 100%, 70% 0%, 75% 100%, 80% 0%, 85% 100%, 90% 0%, 95% 100%, 100% 0%)" }}></div>
+                         <img 
+                           src="/lid.png" 
+                           alt="Pack Lid"
+                           className="absolute inset-0 w-full h-full object-cover"
+                         />
+                         <div className="absolute -bottom-2 w-full h-4 bg-white" style={{ clipPath: "polygon(0% 0%, 5% 100%, 10% 0%, 15% 100%, 20% 0%, 25% 100%, 30% 0%, 35% 100%, 40% 0%, 45% 100%, 50% 0%, 55% 100%, 60% 0%, 65% 100%, 70% 0%, 75% 100%, 80% 0%, 85% 100%, 90% 0%, 95% 100%, 100% 0%)" }}></div>
                      </motion.div>
                   </div>
                 </motion.div>
@@ -165,7 +173,7 @@ export function GachaPack({ balance, packCost, canOpen, onSpend, apiBase }: Gach
               {status === "reveal" && (
                 <>
                     <motion.div 
-                      className="grid grid-cols-5 gap-4 w-full max-w-6xl px-4 z-50"
+                      className="grid grid-cols-5 gap-8 w-full max-w-7xl px-8 z-50 pointer-events-auto"
                       initial="hidden"
                       animate="visible"
                       variants={{
@@ -176,6 +184,7 @@ export function GachaPack({ balance, packCost, canOpen, onSpend, apiBase }: Gach
                         <motion.div
                           key={card.id ?? index}
                           className="pointer-events-auto"
+                          style={{ perspective: "1000px", transformStyle: "preserve-3d" }}
                           variants={{
                             hidden: { y: 150, opacity: 0, scale: 0.5, rotateX: -45 },
                             visible: { 
@@ -183,6 +192,7 @@ export function GachaPack({ balance, packCost, canOpen, onSpend, apiBase }: Gach
                                 transition: { type: "spring", bounce: 0.4, duration: 0.8 } 
                             }
                           }}
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <BalatroCard item={toBalatroCard(card, index)} />
                         </motion.div>
@@ -193,13 +203,11 @@ export function GachaPack({ balance, packCost, canOpen, onSpend, apiBase }: Gach
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: 1.5 }}
-                      className="absolute bottom-10 inset-x-0 text-center z-[80] cursor-pointer"
-                      onClick={reset}
+                      className="absolute bottom-10 inset-x-0 text-center z-[80] pointer-events-none"
                     >
-                        <span className="text-white/70 font-bold text-sm uppercase tracking-[0.3em] animate-pulse hover:text-white transition-colors border-b-2 border-transparent hover:border-white pb-2">
+                        <span className="text-white/70 font-bold text-sm uppercase tracking-[0.3em] animate-pulse hover:text-white transition-colors border-b-2 border-transparent hover:border-white pb-2 pointer-events-auto cursor-pointer" onClick={(e) => { e.stopPropagation(); reset(); }}>
                             Tap to Continue
                         </span>
-                        <div className="fixed inset-0 z-40" onClick={reset}></div>
                     </motion.div>
                 </>
               )}
@@ -341,12 +349,12 @@ function SuperFirework({ delay = 0, x, y, colors, particleCount = 24, scale = 1 
 
 function PackVisual() {
   return (
-    <div className="h-full w-full bg-gradient-to-br from-indigo-600 to-purple-800 rounded-xl border-4 border-yellow-400 shadow-xl flex items-center justify-center relative overflow-hidden">
-       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 mix-blend-overlay"></div>
-       <div className="text-center text-white relative z-20">
-        <Sparkles className="w-12 h-12 mx-auto mb-2 text-yellow-300 drop-shadow-md" />
-        <h2 className="text-xl font-black tracking-widest uppercase">Gacha<br/>Gen 1</h2>
-      </div>
+    <div className="h-full w-full rounded-xl border-4 border-yellow-400 shadow-xl flex items-center justify-center relative overflow-hidden">
+       <img 
+         src="/Pack%20Art.png" 
+         alt="Pack Art"
+         className="absolute inset-0 w-full h-full object-cover"
+       />
     </div>
   );
 }
@@ -385,6 +393,7 @@ function toBalatroCard(card: { name: string; rarity: string; image_url?: string;
     color,
     glowColor,
     finish,
+    cardBase: "/cardbase.png",
     cardArt: getDisplayImageUrl(card.image_url),
     auraValue: card.aura ? Number.parseInt(card.aura, 10) : undefined,
     cardType: card.type,
