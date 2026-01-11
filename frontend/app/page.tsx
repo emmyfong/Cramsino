@@ -71,6 +71,15 @@ export default function Home() {
     return `${minutes}:${seconds}`;
   };
 
+  const getQuestTargetMinutes = (quest: any) => {
+    const raw = quest?.target_minutes ?? quest?.target ?? quest?.minutes ?? 0;
+    const parsed = Number(raw);
+    if (Number.isNaN(parsed) || parsed <= 0) {
+      return 0;
+    }
+    return parsed;
+  };
+
   useEffect(() => {
     const isTalking = Boolean((status as any)?.status?.talking);
     const isDistracted = Boolean((status as any)?.status?.distracted);
@@ -137,6 +146,9 @@ export default function Home() {
     if (shouldPause) {
       setAutoPaused(true);
       setIsRunning(false);
+      setElapsedSeconds(0);
+      setCleanFocusSeconds(0);
+      setShowPauseNotice(true);
       return;
     }
 
@@ -164,16 +176,17 @@ export default function Home() {
       return;
     }
 
-    const targetMinutes = Number(
-      activeQuest.target_minutes ?? activeQuest.target ?? activeQuest.minutes ?? 0
-    );
+    const targetMinutes = getQuestTargetMinutes(activeQuest);
     if (!targetMinutes || Number.isNaN(targetMinutes)) {
       return;
     }
 
-    if (cleanFocusSeconds >= targetMinutes * 60 && !questRewardedRef.current) {
+    const progressSeconds = elapsedSeconds;
+
+    if (progressSeconds >= targetMinutes * 60 && !questRewardedRef.current) {
       questRewardedRef.current = true;
       setQuestCompleted(true);
+      setActiveQuest((prev: any) => (prev ? { ...prev, completed: true } : prev));
       if (activeQuest.reward_gold) {
         setCoinBalance((prev) => prev + Number(activeQuest.reward_gold));
       }
@@ -181,7 +194,7 @@ export default function Home() {
         addExperience(Number(activeQuest.reward_xp));
       }
     }
-  }, [activeQuest, cleanFocusSeconds, hasStarted, isRunning, questCompleted]);
+  }, [activeQuest, cleanFocusSeconds, elapsedSeconds, hasStarted, isRunning, questCompleted]);
 
   useEffect(() => {
     const storedCoinsRaw = localStorage.getItem("cramsinoCoins");
@@ -201,40 +214,6 @@ export default function Home() {
     window.dispatchEvent(new Event("cramsinoCoinsUpdated"));
   }, [coinBalance]);
 
-  useEffect(() => {
-    const storedQuest = localStorage.getItem("cramsinoActiveQuest");
-    if (storedQuest) {
-      try {
-        const parsed = JSON.parse(storedQuest);
-        if (parsed.quest) {
-          const targetMinutes = Number(
-            parsed.quest.target_minutes ?? parsed.quest.target ?? parsed.quest.minutes ?? 0
-          );
-          setActiveQuest({
-            ...parsed.quest,
-            target_minutes: Number.isNaN(targetMinutes) ? 0 : targetMinutes,
-          });
-        } else {
-          setActiveQuest(null);
-        }
-        setQuestCompleted(Boolean(parsed.completed));
-        questRewardedRef.current = Boolean(parsed.completed);
-      } catch {
-        // Ignore malformed quest data
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!activeQuest) {
-      localStorage.removeItem("cramsinoActiveQuest");
-      return;
-    }
-    localStorage.setItem(
-      "cramsinoActiveQuest",
-      JSON.stringify({ quest: activeQuest, completed: questCompleted })
-    );
-  }, [activeQuest, questCompleted]);
 
   const onStart = () => {
     setHasStarted(true);
@@ -244,6 +223,8 @@ export default function Home() {
   const onPause = () => {
     setIsRunning(false);
     setAutoPaused(false);
+    setElapsedSeconds(0);
+    setCleanFocusSeconds(0);
   };
 
   const onReset = () => {
@@ -276,15 +257,13 @@ export default function Home() {
                       wasTalking: false
                   })
               });
-              const quest = await res.json();
-              const targetMinutes = Number(
-                quest.target_minutes ?? quest.target ?? quest.minutes ?? 5
-              );
-              quests.push({
-                ...quest,
-                type: quest.type || "no_distractions",
-                target_minutes: targetMinutes,
-              });
+          const quest = await res.json();
+          const targetMinutes = getQuestTargetMinutes(quest) || 5;
+          quests.push({
+            ...quest,
+            type: quest.type || "no_distractions",
+            target_minutes: targetMinutes,
+          });
           }
           // Add 1 hardcoded test quest
           const hardcodedQuest = {
@@ -507,12 +486,9 @@ export default function Home() {
                                 <p className="text-sm text-slate-600 mb-4">{activeQuest.description}</p>
                                 
                                 <div className="flex gap-2 text-xs font-mono uppercase text-slate-400">
-                                    <span className="px-2 py-1 bg-white rounded border">Condition: {activeQuest.type}</span>
-                                    <span className="px-2 py-1 bg-white rounded border">Target: {activeQuest.target_minutes} min</span>
-                                </div>
-
-                                <div className="mt-4 text-xs text-slate-500">
-                                  Clean focus: {formatMinutesSeconds(cleanFocusSeconds)} / {formatMinutesSeconds((activeQuest.target_minutes || 0) * 60)}
+                                    <span className="px-2 py-1 bg-white rounded border">
+                                      Condition: {formatMinutesSeconds(elapsedSeconds)} / {formatMinutesSeconds(getQuestTargetMinutes(activeQuest) * 60)}
+                                    </span>
                                 </div>
                                 {questCompleted && (
                                   <div className="mt-2 text-sm font-semibold text-emerald-600">
@@ -544,7 +520,7 @@ export default function Home() {
                                   <p className="text-sm text-slate-600 mb-4">{quest.description}</p>
                                   <div className="flex gap-2 text-xs font-mono uppercase text-slate-400">
                                     <span className="px-2 py-1 bg-white rounded border">Condition: {quest.type}</span>
-                                    <span className="px-2 py-1 bg-white rounded border">Target: {quest.target_minutes} min</span>
+                                    <span className="px-2 py-1 bg-white rounded border">Target: {getQuestTargetMinutes(quest)} min</span>
                                   </div>
                                 </div>
                               ))}
