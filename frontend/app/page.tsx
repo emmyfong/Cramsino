@@ -35,6 +35,7 @@ export default function Home() {
   const coinAwardIntervalSeconds = 5;
   const lastAwardedBatchRef = useRef(0);
   const [activeQuest, setActiveQuest] = useState<any>(null);
+  const [availableQuests, setAvailableQuests] = useState<any[]>([]);
   const [questCompleted, setQuestCompleted] = useState(false);
   const [cleanFocusSeconds, setCleanFocusSeconds] = useState(0);
   const [isLoadingQuest, setIsLoadingQuest] = useState(false);
@@ -176,6 +177,9 @@ export default function Home() {
       if (activeQuest.reward_gold) {
         setCoinBalance((prev) => prev + Number(activeQuest.reward_gold));
       }
+      if (activeQuest.reward_xp) {
+        addExperience(Number(activeQuest.reward_xp));
+      }
     }
   }, [activeQuest, cleanFocusSeconds, hasStarted, isRunning, questCompleted]);
 
@@ -261,26 +265,41 @@ export default function Home() {
   const handleGenerateQuest = async () => {
       setIsLoadingQuest(true);
       try {
-          // In a real scenario, you'd pass REAL stats from the previous session.
-          // For now, we mock "Average" stats to get a standard quest.
-          const res = await fetch("/api", { // Ensure this matches your folder path!
-              method: "POST",
-              body: JSON.stringify({
-                  duration: 25,
-                  distractionCount: 2,
-                  wasTalking: false
-              })
-          });
-          const quest = await res.json();
-          const targetMinutes = Number(
-            quest.target_minutes ?? quest.target ?? quest.minutes ?? 5
-          );
-
-          setActiveQuest({
-            ...quest,
-            type: quest.type || "no_distractions",
-            target_minutes: targetMinutes,
-          });
+          const quests = [];
+          // Generate 2 Gemini quests
+          for (let i = 0; i < 2; i++) {
+              const res = await fetch("/api", {
+                  method: "POST",
+                  body: JSON.stringify({
+                      duration: 25,
+                      distractionCount: 2,
+                      wasTalking: false
+                  })
+              });
+              const quest = await res.json();
+              const targetMinutes = Number(
+                quest.target_minutes ?? quest.target ?? quest.minutes ?? 5
+              );
+              quests.push({
+                ...quest,
+                type: quest.type || "no_distractions",
+                target_minutes: targetMinutes,
+              });
+          }
+          // Add 1 hardcoded test quest
+          const hardcodedQuest = {
+            id: Date.now().toString() + "-hardcoded",
+            title: "Quick Focus Test",
+            description: "Study for 10 seconds without distractions to test the XP system.",
+            reward_gold: 50,
+            reward_xp: 20,
+            type: "min_duration",
+            target: 10,
+            target_minutes: 0.1667
+          };
+          quests.push(hardcodedQuest);
+          setAvailableQuests(quests);
+          setActiveQuest(null);
           setQuestCompleted(false);
           setCleanFocusSeconds(0);
           questRewardedRef.current = false;
@@ -459,8 +478,8 @@ export default function Home() {
                 <Card className="shadow-md bg-white">
                       <CardHeader className="flex flex-row items-center justify-between">
                           <div>
-                            <CardTitle>Active Quest</CardTitle>
-                            <CardDescription>Generate a mission for your study session.</CardDescription>
+                            <CardTitle>Quests</CardTitle>
+                            <CardDescription>Generate and complete missions for rewards.</CardDescription>
                           </div>
                           <Button 
                             onClick={handleGenerateQuest} 
@@ -468,7 +487,7 @@ export default function Home() {
                             size="sm"
                             className="bg-indigo-600 text-white"
                           >
-                            {isLoadingQuest ? "Generating..." : "New Quest!"}
+                            {isLoadingQuest ? "Generating..." : "New Quests!"}
                           </Button>
                       </CardHeader>
                       <CardContent>
@@ -476,9 +495,14 @@ export default function Home() {
                             <div className="p-4 border-2 border-indigo-100 rounded-xl bg-indigo-50/50">
                                 <div className="flex justify-between items-start mb-2">
                                     <h3 className="font-bold text-lg text-indigo-900">{activeQuest.title}</h3>
-                                    <Badge className="bg-amber-400 text-amber-900 hover:bg-amber-500">
-                                        {activeQuest.reward_gold} G
-                                    </Badge>
+                                    <div className="flex gap-2">
+                                      <Badge className="bg-amber-400 text-amber-900 hover:bg-amber-500">
+                                          {activeQuest.reward_gold} G
+                                      </Badge>
+                                      <Badge className="bg-purple-400 text-purple-900 hover:bg-purple-500">
+                                          {activeQuest.reward_xp} XP
+                                      </Badge>
+                                    </div>
                                 </div>
                                 <p className="text-sm text-slate-600 mb-4">{activeQuest.description}</p>
                                 
@@ -496,9 +520,38 @@ export default function Home() {
                                   </div>
                                 )}
                             </div>
+                          ) : availableQuests.length > 0 ? (
+                            <div className="space-y-4">
+                              <p className="text-sm text-slate-600">Choose a quest to start:</p>
+                              {availableQuests.map((quest, index) => (
+                                <div key={index} className="p-4 border border-indigo-200 rounded-xl bg-indigo-50/30 hover:bg-indigo-50/50 cursor-pointer" onClick={() => {
+                                  setActiveQuest(quest);
+                                  setQuestCompleted(false);
+                                  setCleanFocusSeconds(0);
+                                  questRewardedRef.current = false;
+                                }}>
+                                  <div className="flex justify-between items-start mb-2">
+                                    <h3 className="font-bold text-lg text-indigo-900">{quest.title}</h3>
+                                    <div className="flex gap-2">
+                                      <Badge className="bg-amber-400 text-amber-900 hover:bg-amber-500">
+                                          {quest.reward_gold} G
+                                      </Badge>
+                                      <Badge className="bg-purple-400 text-purple-900 hover:bg-purple-500">
+                                          {quest.reward_xp} XP
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                  <p className="text-sm text-slate-600 mb-4">{quest.description}</p>
+                                  <div className="flex gap-2 text-xs font-mono uppercase text-slate-400">
+                                    <span className="px-2 py-1 bg-white rounded border">Condition: {quest.type}</span>
+                                    <span className="px-2 py-1 bg-white rounded border">Target: {quest.target_minutes} min</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           ) : (
                             <div className="text-center py-8 text-slate-400 italic">
-                                No active quest. Click the button to start.
+                                No quests available. Click the button to generate.
                             </div>
                           )}
                       </CardContent>
@@ -597,7 +650,7 @@ function TaskList() {
                         "flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-xl border transition-all duration-200 gap-3 sm:gap-0",
                         task.completed 
                             ? "bg-slate-50 border-slate-100 opacity-60" 
-                            : "bg-white border-slate-200 hover:border-indigo-300 hover:shadow-md hover:-translate-y-0.5"
+                            : "bg-white border-slate-200 hover:bg-indigo-600 hover:shadow-md hover:-translate-y-0.5"
                     )}
                 >
                     <div className="flex items-center space-x-3 w-full sm:w-auto">
