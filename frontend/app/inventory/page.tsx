@@ -5,27 +5,35 @@ import { Badge } from "@/components/ui/badge";
 import { BalatroCard, type CardItem } from "@/components/features/balatro-card";
 import { Loader2 } from "lucide-react";
 
-// ... (keep your getRarityStyles function here) ...
 const getRarityStyles = (rarity: string) => {
-    // ... same as before
-    const r = rarity?.toLowerCase() || "common";
-    // ...
-    return {
-      color: "bg-slate-900/50 border-slate-600",
-      glowColor: "rgba(148, 163, 184, 0.4)",
-      finish: "base" as const,
-    };
+  const r = rarity?.toLowerCase() || "common";
+  return {
+    color: "bg-slate-900/50 border-slate-600",
+    glowColor: "rgba(148, 163, 184, 0.4)",
+    finish: "base" as const,
+  };
 };
 
-// CRITICAL FIX 1: Remove 'async' from this line!
-// Wrong: export default async function InventoryPage() {
-// Right:
+const toLh3Link = (url: string) => {
+  if (!url) return "/cardbase.png";
+  
+  if (!url.includes("drive.google.com")) return url;
+
+  const idMatch = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  
+  if (idMatch && idMatch[1]) {
+    return `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
+  }
+
+  return url;
+};
+
 export default function InventoryPage() {
   const [cards, setCards] = useState<CardItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const API_BASE = "https://cramsino.onrender.com/"; 
+  const API_BASE = "https://cramsino.onrender.com"; 
 
   useEffect(() => {
     const fetchInventory = async () => {
@@ -47,7 +55,9 @@ export default function InventoryPage() {
             id: item.id,
             name: item.name,
             rarity: item.rarity,
-            cardArt: item.image_url, 
+            
+            cardArt: toLh3Link(item.image_url), 
+            
             cardBase: "/cardbase.png", 
             color: styles.color,
             glowColor: styles.glowColor,
