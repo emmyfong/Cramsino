@@ -2,18 +2,15 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-// Use the stable model
-const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+const model = genAI.getGenerativeModel({ model: "gemini-3-flash" });
 
 export async function POST(req: Request) {
   try {
     const { duration, distractionCount, wasTalking } = await req.json();
 
-    // Context: "Cramsino" is a study RPG.
-    // We adjust the difficulty based on their last session performance.
     let difficulty = "NORMAL";
-    if (distractionCount > 5 || wasTalking) difficulty = "EASY"; // They struggled, give them a win
-    if (distractionCount === 0 && duration > 25) difficulty = "HARD"; // They are locked in, challenge them
+    if (distractionCount > 5 || wasTalking) difficulty = "EASY"
+    if (distractionCount === 0 && duration > 25) difficulty = "HARD";
 
     const prompt = `
       You are the Quest Master for a Study RPG. Generate a SINGLE quest based on the user's recent performance.
