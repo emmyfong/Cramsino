@@ -40,6 +40,7 @@ export default function Home() {
   const [isLoadingQuest, setIsLoadingQuest] = useState(false);
   const questRewardedRef = useRef(false);
   const statusFlagsRef = useRef({ talking: false, distracted: false });
+  const [showPauseNotice, setShowPauseNotice] = useState(false);
   const [level, setLevel] = useState(1);
   const [currentXP, setCurrentXP] = useState(0);
 
@@ -136,6 +137,7 @@ export default function Home() {
     if (shouldPause) {
       setAutoPaused(true);
       setIsRunning(false);
+      setShowPauseNotice(true);
       return;
     }
 
@@ -144,6 +146,15 @@ export default function Home() {
       setIsRunning(true);
     }
   }, [autoPaused, distractedStreak, hasStarted, talkingStreak]);
+
+  useEffect(() => {
+    if (!showPauseNotice) {
+      return;
+    }
+
+    const timeout = setTimeout(() => setShowPauseNotice(false), 3000);
+    return () => clearTimeout(timeout);
+  }, [showPauseNotice]);
 
   useEffect(() => {
     if (!hasStarted || !isRunning) {
@@ -326,6 +337,11 @@ export default function Home() {
   return (
     // FIX 1: 'h-auto' allows scrolling on mobile/split. 'lg:h-[...]' locks it on desktop.
     <div className="flex h-auto lg:h-[calc(100vh-4rem)] w-full flex-col lg:flex-row bg-slate-50 relative overflow-x-hidden lg:overflow-hidden">
+      {showPauseNotice && (
+        <div className="fixed top-20 right-6 z-[9999] rounded-xl bg-rose-500 px-4 py-3 text-sm font-semibold text-white shadow-xl">
+          Timer paused due to distraction.
+        </div>
+      )}
       
       {/* =======================
           LEFT SIDE: DASHBOARD 
