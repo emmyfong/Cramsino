@@ -34,6 +34,19 @@ type ApiCard = {
   type: string;
 };
 
+function isApiCard(value: unknown): value is ApiCard {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.name === "string" &&
+    typeof candidate.rarity === "string" &&
+    typeof candidate.image_url === "string" &&
+    typeof candidate.aura === "string" &&
+    typeof candidate.type === "string"
+  );
+}
+
 export function GachaPack({ balance, packCost, canOpen, onSpend, apiBase }: GachaPackProps) {
   const [status, setStatus] = useState<GachaState>("idle");
   const [cards, setCards] = useState(MOCK_PULL);
@@ -54,7 +67,10 @@ export function GachaPack({ balance, packCost, canOpen, onSpend, apiBase }: Gach
       if (response.ok) {
         const data = await response.json();
         if (Array.isArray(data?.cards) && data.cards.length > 0) {
-          setCards(data.cards as ApiCard[]);
+          const apiCards = data.cards.filter(isApiCard);
+          if (apiCards.length > 0) {
+            setCards(apiCards);
+          }
         }
       }
     } catch {
