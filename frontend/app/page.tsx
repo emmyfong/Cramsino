@@ -181,7 +181,9 @@ export default function Home() {
       return;
     }
 
-    const progressSeconds = elapsedSeconds;
+    const questType = String(activeQuest.type || "").toLowerCase();
+    const progressSeconds =
+      questType === "min_duration" ? elapsedSeconds : cleanFocusSeconds;
 
     if (progressSeconds >= targetMinutes * 60 && !questRewardedRef.current) {
       questRewardedRef.current = true;
@@ -487,7 +489,7 @@ export default function Home() {
                                 
                                 <div className="flex gap-2 text-xs font-mono uppercase text-slate-400">
                                     <span className="px-2 py-1 bg-white rounded border">
-                                      Condition: {formatMinutesSeconds(elapsedSeconds)} / {formatMinutesSeconds(getQuestTargetMinutes(activeQuest) * 60)}
+                                      Target Minutes: {getQuestTargetMinutes(activeQuest)}
                                     </span>
                                 </div>
                                 {questCompleted && (
